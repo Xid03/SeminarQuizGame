@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Object Identification Quiz</title>
+    <!-- Favicon for the tab icon -->
+    <link rel="icon" type="image/png" href="https://placehold.co/32x32/3b82f6/ffffff?text=🧠">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js for sound generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* Dark background for focus */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* Ensures body takes full viewport height */
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden; /* Prevent body scrolling */
+        }
+        .game-container {
+            background-color: #2d3748; /* Slightly lighter dark background */
+            border-radius: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+            padding: 2rem; /* Adjusted padding for better fit */
+            max-width: 900px; /* Increased max-width for more images */
+            width: 100%;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between; /* Distribute items vertically */
+            height: calc(100vh - 40px); /* Fill remaining viewport height, accounting for body padding */
+            max-height: calc(100vh - 40px); /* Ensure it doesn't exceed viewport height */
+            overflow-y: auto; /* Allow scrolling within container if content is too large, but try to avoid */
+        }
+        .text-gradient-green {
+            background: linear-gradient(to right, #22c55e, #84cc16); /* Vibrant green gradient */
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .text-gradient-blue {
+            background: linear-gradient(to right, #3b82f6, #60a5fa); /* Vibrant blue gradient */
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .question-display {
+            color: #cbd5e0;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+        .timer-display {
+            color: #fca5a5; /* Light red for timer */
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+        }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Responsive grid */
+            gap: 1.5rem;
+            width: 100%;
+            justify-items: center;
+            align-items: center;
+            flex-grow: 1; /* Allow grid to take up available vertical space */
+            align-content: center; /* Center grid items vertically if space allows */
+        }
+        .grid-image-wrapper {
+            background-color: #000; /* Black background for image area */
+            border-radius: 1rem;
+            border: 2px solid #4a5568;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out;
+            width: 100%;
+            padding-bottom: 100%; /* 1:1 Aspect Ratio */
+            position: relative;
+        }
+        .grid-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            border-radius: 0.5rem;
+            padding: 10px; /* Padding inside the wrapper */
+        }
+        .grid-image-wrapper:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            border-color: #60a5fa; /* Blue hover border */
+        }
+        .grid-image-wrapper.correct {
+            border-color: #22c55e; /* Green for correct */
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.7);
+        }
+        .grid-image-wrapper.incorrect {
+            border-color: #ef4444; /* Red for incorrect */
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.7);
+        }
+        .game-message {
+            color: #cbd5e0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+        .start-button {
+            background-image: linear-gradient(to right, #2563eb, #3b82f6); /* Blue gradient for action */
+            color: white;
+            padding: 1rem 2.5rem;
+            border-radius: 0.75rem;
+            font-weight: bold;
+            font-size: 1.25rem;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background-image 0.3s ease;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+            border: none;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .start-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+            background-image: linear-gradient(to right, #1d4ed8, #2563eb);
+        }
+        .start-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        /* Score display removed */
+        /* Leaderboard section removed */
+
+        /* Pop-up base styles (Correct and Incorrect share these) */
+        .popup-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(17, 24, 39, 0.75); /* bg-gray-900 with opacity */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            opacity: 0; /* Hidden by default */
+            visibility: hidden; /* Hidden by default */
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+        .popup-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .popup-content {
+            background-color: #ffffff;
+            padding: 2.5rem;
+            border-radius: 1.5rem; /* More rounded */
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            transform: scale(0.8); /* Start smaller for pop-in effect */
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+        .popup-overlay.active .popup-content {
+            transform: scale(1);
+            opacity: 1;
+        }
+        .popup-content h3 {
+            font-size: 2.5rem; /* Larger heading */
+            font-weight: 800; /* Bolder */
+            margin-bottom: 1rem;
+        }
+        .popup-content p {
+            font-size: 1.25rem; /* Larger message */
+            color: #374151; /* Darker text */
+            margin-bottom: 2rem;
+        }
+        #popupPlayAgainButton {
+            background-image: linear-gradient(to right, #3b82f6, #60a5fa); /* Blue gradient */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        #popupPlayAgainButton:hover {
+            background-image: linear-gradient(to right, #2563eb, #3b82f6);
+        }
+
+        /* Specific styles for Correct Answer Pop-up */
+        #correctAnswerPopup h3 {
+            color: #22c55e; /* Green for success */
+            text-shadow: 0 0 10px rgba(34, 197, 94, 0.5); /* Subtle glow */
+        }
+
+        /* Specific styles for Incorrect Answer Pop-up */
+        #incorrectAnswerPopup h3 {
+            color: #ef4444; /* Red for incorrect */
+            text-shadow: 0 0 10px rgba(239, 68, 68, 0.5); /* Subtle red glow */
+        }
+        #popupIncorrectPlayAgainButton {
+            background-image: linear-gradient(to right, #ef4444, #dc2626); /* Red gradient for action */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        #popupIncorrectPlayAgainButton:hover {
+            background-image: linear-gradient(to right, #dc2626, #b91c1c);
+        }
+
+
+        /* Responsive adjustments for smaller screens */
+        @media (max-width: 768px) {
+            .game-container {
+                padding: 1.5rem; /* Smaller padding on smaller screens */
+                height: calc(100vh - 30px); /* Adjust height for smaller body padding */
+                max-height: calc(100vh - 30px);
+            }
+            body {
+                padding: 15px; /* Smaller body padding */
+            }
+            .question-display {
+                font-size: 1.75rem; /* Slightly smaller font */
+                margin-bottom: 1rem;
+            }
+            .timer-display {
+                font-size: 2rem; /* Slightly smaller font */
+                margin-bottom: 0.75rem;
+            }
+            .image-grid {
+                gap: 0.75rem; /* Smaller gap in grid */
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); /* Allow smaller images */
+            }
+            .start-button {
+                padding: 0.75rem 1.5rem;
+                font-size: 1rem;
+            }
+            /* Score display removed */
+            /* Leaderboard section removed */
+            .popup-content {
+                padding: 1.5rem;
+                border-radius: 1rem;
+            }
+            .popup-content h3 {
+                font-size: 2rem;
+            }
+            .popup-content p {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="game-container">
+        <h1 class="text-4xl font-extrabold text-gradient-green mb-2">
+            Object Identification Quiz
+        </h1>
+        <p class="text-lg text-gray-400 mb-4">
+            Test your visual recognition skills!
+        </p>
+
+        <div id="questionDisplay" class="question-display">
+            Click 'Start Game' to begin!
+        </div>
+
+        <div id="timerDisplay" class="timer-display hidden">
+            Time Left: <span id="timeLeft">2</span>s
+        </div>
+
+        <div id="gameArea" class="image-grid">
+            <!-- Images will be dynamically loaded here -->
+            <p id="initialMessage" class="game-message col-span-full">Images will appear here.</p>
+        </div>
+
+        <button id="startButton" class="start-button">
+            Start Game
+        </button>
+
+        <!-- Score display removed -->
+        <!-- Leaderboard section removed -->
+    </div>
+
+    <!-- Correct Answer Pop-up -->
+    <div id="correctAnswerPopup" class="popup-overlay hidden">
+        <div class="popup-content">
+            <h3>🎉 Correct! 🎉</h3>
+            <p>You identified the object!</p>
+            <button id="popupPlayAgainButton" class="start-button">Play Again</button>
+        </div>
+    </div>
+
+    <!-- Incorrect Answer / Timeout Pop-up -->
+    <div id="incorrectAnswerPopup" class="popup-overlay hidden">
+        <div class="popup-content">
+            <h3>❌ Incorrect! ❌</h3>
+            <p id="incorrectMessage">Time's up! The correct answer was...</p>
+            <button id="popupIncorrectPlayAgainButton" class="start-button">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const questionDisplay = document.getElementById('questionDisplay');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const timeLeftSpan = document.getElementById('timeLeft');
+        const gameArea = document.getElementById('gameArea');
+        const startButton = document.getElementById('startButton');
+        const initialMessage = document.getElementById('initialMessage');
+        const correctAnswerPopup = document.getElementById('correctAnswerPopup');
+        const popupPlayAgainButton = document.getElementById('popupPlayAgainButton');
+        const incorrectAnswerPopup = document.getElementById('incorrectAnswerPopup');
+        const popupIncorrectPlayAgainButton = document.getElementById('popupIncorrectPlayAgainButton');
+        const incorrectMessage = document.getElementById('incorrectMessage');
+
+
+        let correctAnswerObject = null;
+        let imagesDisplayed = [];
+        let gameActive = false;
+        let roundTimer = null;
+        let countdownInterval = null;
+
+        const NUM_IMAGES_TO_DISPLAY = 8;
+        const ROUND_TIME_LIMIT_MS = 2000; // 2 seconds for each round
+
+        // Tone.js Synths for sound effects
+        const correctSynth = new Tone.Synth().toDestination();
+        const incorrectSynth = new Tone.MembraneSynth().toDestination();
+        const timerTickSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: "sine" },
+            envelope: {
+                attack: 0.001,
+                decay: 0.1,
+                sustain: 0.05,
+                release: 0.1
+            }
+        }).toDestination();
+        const timerEndSynth = new Tone.NoiseSynth({
+            noise: { type: "white" },
+            envelope: {
+                attack: 0.005,
+                decay: 0.1,
+                sustain: 0,
+                release: 0.1
+            }
+        }).toDestination();
+
+
+        const objectsData = [
+            { name: 'Car', image: 'https://placehold.co/200x200/FF5733/ffffff?text=Car' },
+            { name: 'Person', image: 'https://placehold.co/200x200/33FF57/ffffff?text=Person' },
+            { name: 'Bottle', image: 'https://placehold.co/200x200/3357FF/ffffff?text=Bottle' },
+            { name: 'Chair', image: 'https://placehold.co/200x200/FF33CC/ffffff?text=Chair' },
+            { name: 'Laptop', image: 'https://placehold.co/200x200/33CCFF/ffffff?text=Laptop' },
+            { name: 'Dog', image: 'https://placehold.co/200x200/FFCC33/ffffff?text=Dog' },
+            { name: 'TV', image: 'https://placehold.co/200x200/CC33FF/ffffff?text=TV' },
+            { name: 'Bicycle', image: 'https://placehold.co/200x200/33FFCC/ffffff?text=Bicycle' },
+            { name: 'Backpack', image: 'https://placehold.co/200x200/A020F0/ffffff?text=Backpack' },
+            { name: 'Umbrella', image: 'https://placehold.co/200x200/800080/ffffff?text=Umbrella' },
+            { name: 'Handbag', image: 'https://placehold.co/200x200/FFC0CB/000000?text=Handbag' },
+            { name: 'Tie', image: 'https://placehold.co/200x200/008080/ffffff?text=Tie' },
+            { name: 'Suitcase', image: 'https://placehold.co/200x200/A52A2A/ffffff?text=Suitcase' },
+            { name: 'Frisbee', image: 'https://placehold.co/200x200/FF4500/ffffff?text=Frisbee' },
+            { name: 'Skis', image: 'https://placehold.co/200x200/FFFFFF/000000?text=Skis' },
+            { name: 'Snowboard', image: 'https://placehold.co/200x200/4682B4/ffffff?text=Snowboard' },
+            { name: 'Sports Ball', image: 'https://placehold.co/200x200/FFA500/ffffff?text=Ball' },
+            { name: 'Kite', image: 'https://placehold.co/200x200/00CED1/ffffff?text=Kite' },
+            { name: 'Baseball Bat', image: 'https://placehold.co/200x200/8B4513/ffffff?text=Bat' },
+            { name: 'Baseball Glove', image: 'https://placehold.co/200x200/6B8E23/ffffff?text=Glove' },
+            { name: 'Skateboard', image: 'https://placehold.co/200x200/40E0D0/ffffff?text=Skateboard' },
+            { name: 'Surfboard', image: 'https://placehold.co/200x200/00BFFF/ffffff?text=Surfboard' },
+            { name: 'Tennis Racket', image: 'https://placehold.co/200x200/DDA0DD/ffffff?text=Racket' },
+            { name: 'Wine Glass', image: 'https://placehold.co/200x200/F0F8FF/000000?text=Wine+Glass' },
+            { name: 'Fork', image: 'https://placehold.co/200x200/C0C0C0/000000?text=Fork' },
+            { name: 'Knife', image: 'https://placehold.co/200x200/C0C0C0/000000?text=Knife' },
+            { name: 'Spoon', image: 'https://placehold.co/200x200/C0C0C0/000000?text=Spoon' },
+            { name: 'Bowl', image: 'https://placehold.co/200x200/ADD8E6/000000?text=Bowl' },
+            { name: 'Banana', image: 'https://placehold.co/200x200/FFFF00/000000?text=Banana' },
+            { name: 'Apple', image: 'https://placehold.co/200x200/FF0000/ffffff?text=Apple' },
+            { name: 'Sandwich', image: 'https://placehold.co/200x200/F4A460/000000?text=Sandwich' },
+            { name: 'Orange', image: 'https://placehold.co/200x200/FFA500/ffffff?text=Orange' },
+            { name: 'Broccoli', image: 'https://placehold.co/200x200/50C878/ffffff?text=Broccoli' },
+            { name: 'Carrot', image: 'https://placehold.co/200x200/ED9121/ffffff?text=Carrot' },
+            { name: 'Hot Dog', image: 'https://placehold.co/200x200/FFD700/000000?text=Hot+Dog' },
+            { name: 'Pizza', image: 'https://placehold.co/200x200/FFA500/ffffff?text=Pizza' },
+            { name: 'Donut', image: 'https://placehold.co/200x200/D2B48C/000000?text=Donut' },
+            { name: 'Cake', image: 'https://placehold.co/200x200/FFB6C1/000000?text=Cake' },
+            { name: 'Couch', image: 'https://placehold.co/200x200/8B4513/ffffff?text=Couch' },
+            { name: 'Potted Plant', image: 'https://placehold.co/200x200/2E8B57/ffffff?text=Plant' },
+            { name: 'Bed', image: 'https://placehold.co/200x200/D3D3D3/000000?text=Bed' },
+            { name: 'Dining Table', image: 'https://placehold.co/200x200/8B4513/ffffff?text=Table' },
+            { name: 'Toilet', image: 'https://placehold.co/200x200/F5F5DC/000000?text=Toilet' },
+            { name: 'Remote', image: 'https://placehold.co/200x200/4F4F4F/ffffff?text=Remote' },
+            { name: 'Keyboard', image: 'https://placehold.co/200x200/778899/ffffff?text=Keyboard' },
+            { name: 'Cell Phone', image: 'https://placehold.co/200x200/404040/ffffff?text=Phone' },
+            { name: 'Microwave', image: 'https://placehold.co/200x200/A9A9A9/ffffff?text=Microwave' },
+            { name: 'Oven', image: 'https://placehold.co/200x200/696969/ffffff?text=Oven' },
+            { name: 'Toaster', image: 'https://placehold.co/200x200/D2B48C/000000?text=Toaster' },
+            { name: 'Sink', image: 'https://placehold.co/200x200/B0C4DE/000000?text=Sink' },
+            { name: 'Book', image: 'https://placehold.co/200x200/8B4513/ffffff?text=Book' },
+            { name: 'Clock', image: 'https://placehold.co/200x200/D3D3D3/000000?text=Clock' },
+            { name: 'Vase', image: 'https://placehold.co/200x200/E6E6FA/000000?text=Vase' },
+            { name: 'Scissors', image: 'https://placehold.co/200x200/C0C0C0/000000?text=Scissors' },
+            { name: 'Teddy Bear', image: 'https://placehold.co/200x200/CD853F/ffffff?text=Teddy+Bear' },
+            { name: 'Hair Drier', image: 'https://placehold.co/200x200/A9A9A9/ffffff?text=Hair+Drier' },
+            { name: 'Toothbrush', image: 'https://placehold.co/200x200/ADD8E6/000000?text=Toothbrush' }
+        ];
+
+        function playCorrectSound() {
+            Tone.start(); // Start audio context on first user interaction
+            correctSynth.triggerAttackRelease("C5", "8n"); // A C5 note for 8th note duration
+        }
+
+        function playIncorrectSound() {
+            Tone.start();
+            incorrectSynth.triggerAttackRelease("C2", "8n"); // A low C2 for 8th note duration
+        }
+
+        function playTimerTickSound() {
+            Tone.start();
+            timerTickSynth.triggerAttackRelease("C4", "32n"); // A quick C4 tick
+        }
+
+        function playTimerEndSound() {
+            Tone.start();
+            timerEndSynth.triggerAttackRelease("8n"); // A quick noise burst
+        }
+
+        function getRandomUniqueObjects(count) {
+            if (objectsData.length < count) {
+                console.error("Not enough unique objects to display.");
+                return [...objectsData].sort(() => 0.5 - Math.random());
+            }
+            const shuffled = [...objectsData].sort(() => 0.5 - Math.random());
+            return shuffled.slice(0, count);
+        }
+
+        function startGame() {
+            startButton.textContent = 'Play Again';
+            startButton.disabled = true;
+            gameActive = true;
+            startRound();
+        }
+
+        function startRound() {
+            gameArea.innerHTML = '';
+            initialMessage.style.display = 'none';
+            timerDisplay.classList.remove('hidden');
+
+            imagesDisplayed = getRandomUniqueObjects(NUM_IMAGES_TO_DISPLAY);
+            if (imagesDisplayed.length === 0) {
+                questionDisplay.textContent = "Error: Not enough objects to start a round.";
+                timerDisplay.classList.add('hidden');
+                return;
+            }
+
+            const correctIndex = Math.floor(Math.random() * imagesDisplayed.length);
+            correctAnswerObject = imagesDisplayed[correctIndex];
+
+            questionDisplay.textContent = `Find the: "${correctAnswerObject.name}"`;
+
+            imagesDisplayed.forEach(obj => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'grid-image-wrapper';
+                wrapper.dataset.name = obj.name;
+
+                const img = document.createElement('img');
+                img.className = 'grid-image';
+                img.src = obj.image;
+                img.alt = obj.name;
+
+                wrapper.appendChild(img);
+                gameArea.appendChild(wrapper);
+
+                wrapper.addEventListener('click', handleImageClick);
+            });
+
+            let secondsLeft = ROUND_TIME_LIMIT_MS / 1000;
+            timeLeftSpan.textContent = secondsLeft;
+            countdownInterval = setInterval(() => {
+                secondsLeft--;
+                timeLeftSpan.textContent = secondsLeft;
+                playTimerTickSound(); // Play tick sound every second
+                if (secondsLeft <= 0) {
+                    clearInterval(countdownInterval);
+                }
+            }, 1000);
+
+            roundTimer = setTimeout(() => {
+                handleTimeout();
+            }, ROUND_TIME_LIMIT_MS);
+        }
+
+        function handleImageClick(event) {
+            if (!gameActive) return;
+
+            clearTimeout(roundTimer);
+            clearInterval(countdownInterval);
+
+            gameActive = false;
+            timerDisplay.classList.add('hidden');
+
+            const clickedWrapper = event.currentTarget;
+            const clickedObjectName = clickedWrapper.dataset.name;
+
+            if (clickedObjectName === correctAnswerObject.name) {
+                questionDisplay.textContent = `Correct! That was a "${clickedObjectName}".`;
+                clickedWrapper.classList.add('correct');
+                playCorrectSound();
+
+                correctAnswerPopup.classList.remove('hidden');
+                setTimeout(() => {
+                    correctAnswerPopup.classList.add('active');
+                }, 10);
+
+            } else {
+                questionDisplay.textContent = `Incorrect! That was a "${clickedObjectName}". The correct answer was "${correctAnswerObject.name}".`;
+                clickedWrapper.classList.add('incorrect');
+                playIncorrectSound();
+
+                document.querySelectorAll('.grid-image-wrapper').forEach(wrapper => {
+                    if (wrapper.dataset.name === correctAnswerObject.name) {
+                        wrapper.classList.add('correct');
+                    }
+                });
+                incorrectMessage.textContent = `That was a "${clickedObjectName}". The correct answer was "${correctAnswerObject.name}".`;
+                incorrectAnswerPopup.classList.remove('hidden');
+                setTimeout(() => {
+                    incorrectAnswerPopup.classList.add('active');
+                }, 10);
+            }
+
+            document.querySelectorAll('.grid-image-wrapper').forEach(wrapper => {
+                wrapper.removeEventListener('click', handleImageClick);
+            });
+        }
+
+        function handleTimeout() {
+            if (!gameActive) return;
+
+            clearInterval(countdownInterval);
+            gameActive = false;
+            timerDisplay.classList.add('hidden');
+            playTimerEndSound();
+
+            questionDisplay.textContent = `Time's up! The correct answer was "${correctAnswerObject.name}".`;
+
+            document.querySelectorAll('.grid-image-wrapper').forEach(wrapper => {
+                if (wrapper.dataset.name === correctAnswerObject.name) {
+                    wrapper.classList.add('correct');
+                } else {
+                    wrapper.classList.add('incorrect');
+                }
+                wrapper.removeEventListener('click', handleImageClick);
+            });
+
+            incorrectMessage.textContent = `Time's up! The correct answer was "${correctAnswerObject.name}".`;
+            incorrectAnswerPopup.classList.remove('hidden');
+            setTimeout(() => {
+                incorrectAnswerPopup.classList.add('active');
+            }, 10);
+        }
+
+        function playAgainFromPopup() {
+            correctAnswerPopup.classList.remove('active');
+            correctAnswerPopup.classList.add('hidden');
+            incorrectAnswerPopup.classList.remove('active');
+            incorrectAnswerPopup.classList.add('hidden');
+            startGame();
+        }
+
+        // Event Listeners
+        startButton.addEventListener('click', startGame);
+        popupPlayAgainButton.addEventListener('click', playAgainFromPopup);
+        popupIncorrectPlayAgainButton.addEventListener('click', playAgainFromPopup);
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            startButton.textContent = 'Start Game';
+        });
+
+    </script>
+</body>
+</html>
